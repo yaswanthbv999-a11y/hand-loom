@@ -1,0 +1,830 @@
+openapi: 3.1.0
+info:
+  title: Tula-Ops API Specification
+  description: |
+    Backend API for Tula-Ops (Community Operations & Rural Artisan Production Management Platform).
+    
+    User stories covered in this specification:
+    - As a Core Team Member, Volunteer, or Customer, I want to register and login to access the operations dashboard.
+    - As an authenticated user, I want session management (me, logout, password change) to maintain account security.
+    - As a Core Team Member, I want to manage artisan profiles (list, create, update, soft-delete) to coordinate production workflows.
+
+    API Mapping Summary:
+    - Authentication: /api/v1/auth/*
+    - Artisan Management: /api/v1/artisans/*
+    - Health Check: /health
+  version: 1.0.0
+  contact:
+    name: Team-097
+    email: dev@tulaindia.org
+servers:
+  - url: /api/v1
+    description: Tula-Ops API Base Path
+
+security:
+  - BearerAuth: []
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: Authenticate user & issue JWT token
+      operationId: auth_login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful authentication
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+        '401':
+          description: Invalid email or password
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '403':
+          description: Deactivated account access attempt
+
+  /auth/register:
+    post:
+      tags:
+        - Authentication
+      summary: Register a new user account
+      operationId: auth_register
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegisterResponse'
+        '400':
+          description: Validation error or email already exists
+
+  /auth/me:
+    get:
+      tags:
+        - Authentication
+      summary: Get current authenticated user profile
+      operationId: auth_get_me
+      responses:
+        '200':
+          description: Profile retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserResponse'
+        '401':
+          description: Unauthorized / invalid token
+    put:
+      tags:
+        - Authentication
+      summary: Update user profile
+      operationId: auth_update_me
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+
+  /auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Revoke access token (blocklist)
+      operationId: auth_logout
+      responses:
+        '200':
+          description: Token revoked successfully
+
+  /auth/change-password:
+    post:
+      tags:
+        - Authentication
+      summary: Change user password
+      operationId: auth_change_password
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password updated
+
+  /artisans:
+    get:
+      tags:
+        - Artisans
+      summary: List artisans with optional filters
+      operationId: artisans_list
+      parameters:
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [spinner, dyer, weaver, stitching_unit]
+        - name: active
+          in: query
+          required: false
+          schema:
+            type: boolean
+      responses:
+        '200':
+          description: List of artisans retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ArtisanListResponse'
+    post:
+      tags:
+        - Artisans
+      summary: Create new artisan profile (Core Team only)
+      operationId: artisans_create
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateArtisanRequest'
+      responses:
+        '201':
+          description: Artisan created
+        '403':
+          description: Access restricted to core team members
+
+  /artisans/{artisan_id}:
+    get:
+      tags:
+        - Artisans
+      summary: Get single artisan details
+      operationId: artisans_get
+      parameters:
+        - name: artisan_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artisan details
+        '404':
+          description: Artisan not found
+    put:
+      tags:
+        - Artisans
+      summary: Update artisan profile (Core Team only)
+      operationId: artisans_update
+      parameters:
+        - name: artisan_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateArtisanRequest'
+      responses:
+        '200':
+          description: Artisan updated
+        '404':
+          description: Artisan not found
+    delete:
+      tags:
+        - Artisans
+      summary: Soft-delete artisan profile (Core Team only)
+      operationId: artisans_delete
+      parameters:
+        - name: artisan_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artisan deactivated
+
+  /batches:
+    post:
+      tags:
+        - Production Batches
+      summary: Create a new production batch (Core Team only)
+      operationId: batches_create
+      description: |
+        User story: As a Core Team Member, I want to create a new production batch linked to a farmer
+        so that production from raw cotton to finished garments can be tracked.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBatchRequest'
+      responses:
+        '201':
+          description: Batch created successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      batch:
+                        $ref: '#/components/schemas/ProductionBatch'
+        '400':
+          description: Invalid request payload
+
+    get:
+      tags:
+        - Production Batches
+      summary: List all production batches with optional filters
+      operationId: batches_list
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [in_progress, completed, paused]
+        - name: farmer_id
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of production batches
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: object
+                    properties:
+                      batches:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ProductionBatch'
+                      count:
+                        type: integer
+
+  /batches/{batch_id}:
+    get:
+      tags:
+        - Production Batches
+      summary: Get batch details with stage-wise artisan traceability
+      operationId: batches_get
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Batch detail and traceability data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchDetailData'
+        '404':
+          description: Batch not found
+
+    put:
+      tags:
+        - Production Batches
+      summary: Update batch status or dates (Core Team only)
+      operationId: batches_update
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateBatchRequest'
+      responses:
+        '200':
+          description: Batch updated successfully
+        '404':
+          description: Batch not found
+
+    delete:
+      tags:
+        - Production Batches
+      summary: Permanently delete a production batch (Core Team only)
+      operationId: batches_delete
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Batch deleted successfully
+
+  /batches/{batch_id}/artisans:
+    post:
+      tags:
+        - Production Batches
+      summary: Link an artisan to a specific production batch stage
+      operationId: batches_link_artisan
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkArtisanRequest'
+      responses:
+        '201':
+          description: Artisan linked to batch stage successfully
+        '400':
+          description: Artisan already linked to this stage or invalid stage
+
+  /batches/{batch_id}/artisans/{artisan_id}:
+    delete:
+      tags:
+        - Production Batches
+      summary: Unlink an artisan from a production batch
+      operationId: batches_unlink_artisan
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: artisan_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Artisan unlinked successfully
+
+  /workshops:
+    post:
+      tags:
+        - Workshops
+      summary: Create spinning/weaving/dyeing workshop (Core Team only)
+      operationId: workshops_create
+      responses:
+        '201':
+          description: Workshop created
+    get:
+      tags:
+        - Workshops
+      summary: List workshops with optional type filter
+      operationId: workshops_list
+      responses:
+        '200':
+          description: List of workshops
+
+  /workshops/{workshop_id}:
+    get:
+      tags:
+        - Workshops
+      summary: Get workshop details and registrations
+      operationId: workshops_get
+      responses:
+        '200':
+          description: Workshop details
+    put:
+      tags:
+        - Workshops
+      summary: Update workshop details
+      operationId: workshops_update
+      responses:
+        '200':
+          description: Workshop updated
+
+  /workshops/{workshop_id}/register:
+    post:
+      tags:
+        - Workshops
+      summary: Register customer for a workshop
+      operationId: workshops_register
+      responses:
+        '201':
+          description: Customer registered
+
+  /volunteers/availability:
+    post:
+      tags:
+        - Volunteers
+      summary: Submit volunteer event availability
+      operationId: volunteers_submit_availability
+      responses:
+        '201':
+          description: Availability recorded
+    get:
+      tags:
+        - Volunteers
+      summary: List volunteer availability
+      operationId: volunteers_list_availability
+      responses:
+        '200':
+          description: Availability records
+
+  /volunteers/shifts:
+    post:
+      tags:
+        - Volunteers
+      summary: Assign volunteer shift (Core Team only)
+      operationId: volunteers_assign_shift
+      responses:
+        '201':
+          description: Shift assigned
+    get:
+      tags:
+        - Volunteers
+      summary: List volunteer shifts
+      operationId: volunteers_list_shifts
+      responses:
+        '200':
+          description: List of shifts
+
+  /volunteers/shifts/{shift_id}:
+    patch:
+      tags:
+        - Volunteers
+      summary: Update shift status
+      operationId: volunteers_update_shift
+      responses:
+        '200':
+          description: Shift status updated
+
+  /volunteers/dashboard/{event_id}:
+    get:
+      tags:
+        - Volunteers
+      summary: Get volunteer event dashboard summary
+      operationId: volunteers_dashboard
+      responses:
+        '200':
+          description: Event dashboard summary
+
+  /payments:
+    post:
+      tags:
+        - Payments
+      summary: Record payment to farmer or artisan (Core Team only)
+      operationId: payments_create
+      responses:
+        '201':
+          description: Payment recorded
+    get:
+      tags:
+        - Payments
+      summary: List payment ledger records
+      operationId: payments_list
+      responses:
+        '200':
+          description: Payment records
+
+  /payments/{payment_id}:
+    get:
+      tags:
+        - Payments
+      summary: Get payment details by ID
+      operationId: payments_get
+      responses:
+        '200':
+          description: Payment details
+
+  /payments/{payment_id}/status:
+    patch:
+      tags:
+        - Payments
+      summary: Update payment status
+      operationId: payments_update_status
+      responses:
+        '200':
+          description: Status updated
+
+  /payments/summary/{payee_type}/{payee_id}:
+    get:
+      tags:
+        - Payments
+      summary: Aggregate payee payment summary
+      operationId: payments_summary
+      responses:
+        '200':
+          description: Payee financial summary
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            access_token:
+              type: string
+            token_type:
+              type: string
+              example: Bearer
+            user:
+              $ref: '#/components/schemas/User'
+
+    RegisterRequest:
+      type: object
+      required: [name, email, password, role]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+        password:
+          type: string
+        role:
+          type: string
+          enum: [core_team_member, volunteer, customer]
+        phone:
+          type: string
+
+    RegisterResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        role:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+
+    UserResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+
+    ChangePasswordRequest:
+      type: object
+      required: [old_password, new_password]
+      properties:
+        old_password:
+          type: string
+        new_password:
+          type: string
+
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        phone:
+          type: string
+
+    Artisan:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        artisan_type:
+          type: string
+        location:
+          type: string
+        group_name:
+          type: string
+        phone:
+          type: string
+        is_active:
+          type: boolean
+        created_at:
+          type: string
+
+    CreateArtisanRequest:
+      type: object
+      required: [name, artisan_type]
+      properties:
+        name:
+          type: string
+        artisan_type:
+          type: string
+          enum: [spinner, dyer, weaver, stitching_unit]
+        location:
+          type: string
+        group_name:
+          type: string
+        phone:
+          type: string
+
+    UpdateArtisanRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        artisan_type:
+          type: string
+        location:
+          type: string
+        group_name:
+          type: string
+        phone:
+          type: string
+        is_active:
+          type: boolean
+
+    ArtisanListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          type: object
+          properties:
+            artisans:
+              type: array
+              items:
+                $ref: '#/components/schemas/Artisan'
+            count:
+              type: integer
+
+    ApiError:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+
+    ProductionBatch:
+      type: object
+      properties:
+        id:
+          type: string
+        farmer_id:
+          type: string
+        recorded_by:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [in_progress, completed, paused]
+        created_at:
+          type: string
+
+    CreateBatchRequest:
+      type: object
+      required: [farmer_id]
+      properties:
+        farmer_id:
+          type: string
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [in_progress, completed, paused]
+
+    UpdateBatchRequest:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [in_progress, completed, paused]
+        start_date:
+          type: string
+          format: date
+        end_date:
+          type: string
+          format: date
+
+    BatchArtisan:
+      type: object
+      properties:
+        batch_id:
+          type: string
+        artisan_id:
+          type: string
+        stage:
+          type: string
+          enum: [cotton, sliver, yarn, fabric, finished_garment]
+        artisan:
+          $ref: '#/components/schemas/Artisan'
+
+    LinkArtisanRequest:
+      type: object
+      required: [artisan_id, stage]
+      properties:
+        artisan_id:
+          type: string
+        stage:
+          type: string
+          enum: [cotton, sliver, yarn, fabric, finished_garment]
+
+    BatchDetailData:
+      type: object
+      properties:
+        batch:
+          $ref: '#/components/schemas/ProductionBatch'
+        artisans:
+          type: array
+          items:
+            $ref: '#/components/schemas/BatchArtisan'
+        stock_entries:
+          type: array
+          items:
+            type: object
+

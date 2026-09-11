@@ -1,0 +1,20 @@
+{
+  "backend_tests/test_volunteers.py::test_submit_availability": true,
+  "backend_tests/test_volunteers.py::test_submit_availability_duplicate": true,
+  "backend_tests/test_volunteers.py::test_submit_availability_bad_event": true,
+  "backend_tests/test_volunteers.py::test_submit_availability_missing_event_id": true,
+  "backend_tests/test_volunteers.py::test_list_availability": true,
+  "backend_tests/test_volunteers.py::test_assign_shift": true,
+  "backend_tests/test_volunteers.py::test_assign_shift_duplicate": true,
+  "backend_tests/test_volunteers.py::test_assign_shift_forbidden": true,
+  "backend_tests/test_volunteers.py::test_list_shifts": true,
+  "backend_tests/test_volunteers.py::test_update_shift_status": true,
+  "backend_tests/test_volunteers.py::test_update_shift_invalid_status": true,
+  "backend_tests/test_volunteers.py::test_volunteer_dashboard": true,
+  "backend_tests/test_workshops.py::test_create_workshop_forbidden": true,
+  "backend_tests/test_workshops.py::test_register_for_workshop": true,
+  "backend_tests/test_workshops.py::test_register_duplicate": true,
+  "backend_tests/test_workshops.py::test_register_full_workshop": true,
+  "backend_tests/test_workshops.py::test_update_registration_payment": true,
+  "backend_tests/test_workshops.py::test_update_payment_invalid_status": true
+}
